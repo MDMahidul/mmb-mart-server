@@ -75,6 +75,14 @@ const Product = mongoose.model("Product", {
     type: Number,
     require: true,
   },
+  ratings: {
+    type: Number,
+    require: true,
+  },
+  description: {
+    type: String,
+    require: false,
+  },
   date: {
     type: Date,
     default:Date.now,
@@ -103,7 +111,8 @@ const Product = mongoose.model("Product", {
       sub_category: req.body.sub_category,
       new_price: req.body.new_price,
       old_price: req.body.old_price,
-      name: req.body.name,
+      ratings: req.body.ratings,
+      description: req.body.description
     });
     console.log(product);
     await product.save();
@@ -113,6 +122,100 @@ const Product = mongoose.model("Product", {
         name:req.body.name,
     })
  });
+
+ /* remove data from db */
+ app.delete("/deleteproduct/:id",async(req,res)=>{
+    await Product.findOneAndDelete({id:req.params.id});
+    console.log("removed");
+    res.json({
+        success: true,
+        name: req.body.name
+    })
+ })
+
+ /* get all the products from db */
+ app.get('/allproducts',async(req,res)=>{
+    let products =await Product.find({});
+    console.log("all products fetched");
+    res.send(products);
+ })
+
+ /* -------------------shecma for user-------------- */
+ const Users = mongoose.model("Users", {
+   name: {
+     type: String,
+   },
+   email: {
+     type: String,
+     unique: true,
+   },
+   password: {
+     type: String,
+   },
+   role: {
+     type: String,
+     default: "customer",
+   },
+   cartData: {
+     type: Object,
+   },
+   date: {
+     type: Date,
+     default: Date.now,
+   },
+ });
+
+ /* add user to db */
+ app.post('/signup',async(req,res)=>{
+  let checkEmail = await Users.findOne({email:req.body.email});
+  if(checkEmail){
+    return res.status(400).json({success:false,errors:"Existing user found with this email"})
+  }
+  let cart={};
+  for(let i=0;i<300;i++){
+    cart[i]=0;
+  }
+
+  const user = new Users({
+    name:req.body.username,
+    email:req.body.email,
+    password:req.body.password,
+    cartData:cart,
+  });
+
+  await user.save();
+
+  const data = {
+    user:{
+      id:user.id
+    }
+  }
+
+  const token = jwt.sign(data,'sercet_ecom');
+  res.json({ success: true, token, role: user.role });
+ })
+
+ /* user login  */
+ app.post('/login',async(req,res)=>{
+  let user = await Users.findOne({email:req.body.email});
+  if(user){
+    const passCheck = req.body.password === user.password;
+    if(passCheck){
+      const data = {
+        user:{
+        id:user.id
+      }
+    }
+      const token = jwt.sign(data,'secret_ecom');
+      res.json({ success: true, token, role: user.role });
+    }
+    else{
+      res.json({success:false,errors:"wrong password"})
+    }
+  }else{
+    res.json({success:false,errors:"Wrong email id"})
+  }
+ })
 
 app.get("/", (req, res) => {
   res.send(`MMB Mart is running on port: ${port}`);

@@ -140,6 +140,25 @@ const Product = mongoose.model("Product", {
     res.send(products);
  })
 
+
+ /* get new collection data */
+ app.get('/newcollections',async(req,res)=>{
+  let products = await Product.find({}).sort({ date: -1 });
+  let newCollection = products.slice(0, 8);
+
+  res.send(newCollection);
+ })
+
+ /* get the popular collections */
+ app.get('/popularcollections',async(req,res)=>{
+  let products = await Product.find({ratings:{$gt: 4.5}});
+  let popularcollections= products.slice(0,8);
+
+  res.send(popularcollections)
+ })
+
+ 
+
  /* -------------------shecma for user-------------- */
  const Users = mongoose.model("Users", {
    name: {

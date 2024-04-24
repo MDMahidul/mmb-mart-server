@@ -22,6 +22,32 @@ mongoose.connect(
   `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.0cmlqfw.mongodb.net/mmb-mart`
 );
 
+/* verify jwt token */
+const verifyJWT = (req,res,next)=>{
+  const authorization = req.headers.authorization;
+  if(!authorization){
+    return res.status(403).send({error:true,message:'Unauthorized Access'})
+  }
+  const token=authorization.split(" ")[1];
+  /* token verifying */
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET,(err,decoded)=>{
+    if(err){
+      return res
+        .status(401)
+        .send({ error: true, message: "Unauthorized Access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+}
+
+/* create jwt token */
+app.post("/jwt",(req,res)=>{
+  const email = req.body;
+  const token = jwt.sign(email,process.env.ACCESS_TOKEN_SECRET,{expiresIn:"1d"});
+  res.send({token});
+});
+
 /* apis */
 /* ----------------image storage------------------ */
 const storage = multer.diskStorage({
@@ -93,7 +119,7 @@ const Product = mongoose.model("Product", {
   },
 });
 
- app.post('/addproduct',async(req,res)=>{
+ app.post('/addproduct',verifyJWT,async(req,res)=>{
     let products= await Product.find({});
     let id;
     if(products.length > 0){
@@ -124,7 +150,7 @@ const Product = mongoose.model("Product", {
  });
 
  /* remove data from db */
- app.delete("/deleteproduct/:id",async(req,res)=>{
+ app.delete("/deleteproduct/:id",verifyJWT,async(req,res)=>{
     await Product.findOneAndDelete({id:req.params.id});
     console.log("removed");
     res.json({
@@ -157,7 +183,39 @@ const Product = mongoose.model("Product", {
   res.send(popularcollections)
  })
 
- 
+ /* get categories wise data */
+ app.get('/categories/:category',async(req,res)=>{
+  let products = await Product.find({category:req.params.category});
+
+  res.send(products);
+ })
+
+ /* get sub categories wise data */
+ app.get("/subcategories/:sub_category", async (req, res) => {
+   let products = await Product.find({ sub_category: req.params.sub_category });
+
+   res.send(products);
+ });
+
+/* creating middelware to fetch user*/
+const fetchUser=async(req,res,next)=>{
+  const token = req.header('auth-token');
+  if(!token){
+    res.status(401).send({errors:'Unauthorized access'});
+  }else{
+    try{
+      const data=jwt.verify(token,'secret_ecom');
+      req.user = data.user;
+      next();
+    }catch(error){
+      res.status(401).send({errors:'Unauthorized access'});
+    }
+  }
+}
+ /* add product to cart */
+app.post('/addtocart',fetchUser,async(req,res)=>{
+  console.log(req.body,req.user);
+})
 
  /* -------------------shecma for user-------------- */
  const Users = mongoose.model("Users", {
@@ -167,9 +225,6 @@ const Product = mongoose.model("Product", {
    email: {
      type: String,
      unique: true,
-   },
-   password: {
-     type: String,
    },
    role: {
      type: String,
@@ -198,42 +253,29 @@ const Product = mongoose.model("Product", {
   const user = new Users({
     name:req.body.username,
     email:req.body.email,
-    password:req.body.password,
     cartData:cart,
   });
 
   await user.save();
 
-  const data = {
+ /*  const data = {
     user:{
       id:user.id
     }
-  }
-
-  const token = jwt.sign(data,'sercet_ecom');
-  res.json({ success: true, token, role: user.role });
+  } */
+res.json({
+  success: true,
+});
+  /* const token = jwt.sign(data,'sercet_ecom');
+  res.json({ success: true, token, role: user.role }); */
  })
 
- /* user login  */
- app.post('/login',async(req,res)=>{
-  let user = await Users.findOne({email:req.body.email});
-  if(user){
-    const passCheck = req.body.password === user.password;
-    if(passCheck){
-      const data = {
-        user:{
-        id:user.id
-      }
-    }
-      const token = jwt.sign(data,'secret_ecom');
-      res.json({ success: true, token, role: user.role });
-    }
-    else{
-      res.json({success:false,errors:"wrong password"})
-    }
-  }else{
-    res.json({success:false,errors:"Wrong email id"})
-  }
+
+ /* get single user data */
+ app.get('/user/:email',async(req,res)=>{
+    let user = await Users.findOne({ email: req.params.email });
+
+    res.send(user);
  })
 
 app.get("/", (req, res) => {

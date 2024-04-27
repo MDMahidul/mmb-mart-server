@@ -334,6 +334,13 @@ app.post("/signup", async (req, res) => {
   res.json({ success: true, token, role: user.role }); */
 });
 
+/* get all the user info */
+app.get("/user", async (req, res) => {
+  let users =await Users.find({});
+
+  res.send(users);
+});
+
 /* get single user data */
 app.get("/user/:email", async (req, res) => {
   let user = await Users.findOne({ email: req.params.email });
